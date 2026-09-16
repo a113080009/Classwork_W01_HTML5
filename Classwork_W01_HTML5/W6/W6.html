@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>戀愛契機 - 視覺小說遊戲</title>
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --text-color: #ffffff;
+            --box-bg: rgba(0, 0, 0, 0.8);
+            --accent-color: #ff6b6b;
+            --button-hover: #ff8787;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: "Microsoft JhengHei", "PingFang TC", sans-serif;
+        }
+
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1920px;
+            max-height: 1080px;
+            margin: auto;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.5s ease-in-out;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+
+        /* 角色立繪層 */
+        #character-layer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .character-img {
+            position: absolute;
+            bottom: 0;
+            height: 85%;
+            object-fit: contain;
+            transition: all 0.5s ease;
+            opacity: 0;
+            transform: translateY(30px);
+        }
+
+        #char-ming { left: 5%; }
+        #char-haw { right: 15%; }
+        #char-may { right: 15%; }
+
+        .character-img.active {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .character-img.dimmed {
+            filter: brightness(0.5) grayscale(0.3);
+        }
+
+        /* 隱藏分支特殊佈局 */
+        .hidden-layout #char-haw {
+            right: 35%;
+            transform: scale(1.1) translateY(0);
+            z-index: 10;
+        }
+
+        .hidden-layout #char-may {
+            right: 10%;
+            z-index: 8;
+        }
+
+        /* 對話框 */
+        #dialogue-box {
+            position: relative;
+            width: 90%;
+            max-width: 1000px;
+            min-height: 150px;
+            background: var(--box-bg);
+            border: 2px solid var(--accent-color);
+            border-radius: 15px;
+            margin-bottom: 30px;
+            padding: 20px 30px;
+            box-sizing: border-box;
+            z-index: 20;
+            cursor: pointer;
+            display: none;
+        }
+
+        #speaker-name {
+            position: absolute;
+            top: -20px;
+            left: 30px;
+            background: var(--accent-color);
+            color: white;
+            padding: 5px 20px;
+            border-radius: 5px;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        #dialogue-text {
+            color: var(--text-color);
+            font-size: 1.2rem;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+
+        /* 選項 */
+        #choice-container {
+            position: absolute;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            width: 80%;
+            max-width: 500px;
+            z-index: 30;
+            display: none;
+        }
+
+        .choice-btn {
+            background: var(--box-bg);
+            color: white;
+            border: 2px solid white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+        }
+
+        .choice-btn:hover {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+            transform: scale(1.05);
+        }
+
+        /* 標題畫面 */
+        #start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        #start-button {
+            padding: 15px 50px;
+            font-size: 2rem;
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            transition: transform 0.2s;
+            margin-top: 200px;
+        }
+
+        #start-button:hover {
+            transform: scale(1.1);
+            background: var(--button-hover);
+        }
+
+        .ending-tag {
+            color: var(--accent-color);
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="start-screen" style="background-image: url('pictures/Cover.png');">
+        <button id="start-button">開始遊戲</button>
+    </div>
+
+    <div id="character-layer">
+        <img id="char-ming" src="pictures/Ming.png" class="character-img" alt="小明">
+        <img id="char-haw" src="pictures/Haw.png" class="character-img" alt="小花">
+        <img id="char-may" src="pictures/May.png" class="character-img" alt="小美">
+    </div>
+
+    <div id="choice-container"></div>
+
+    <div id="dialogue-box">
+        <div id="speaker-name">旁白</div>
+        <div id="dialogue-text">載入中...</div>
+    </div>
+</div>
+
+<script>
+    const config = {
+        images: {
+            cover: 'pictures/Cover.png',
+            bus: 'pictures/BusBG.png',
+            ming: 'pictures/Ming.png',
+            haw: 'pictures/Haw.png',
+            may: 'pictures/May.png'
+        }
+    };
+
+    const script = {
+        start: [
+            { bg: config.images.bus, speaker: '旁白', text: '公車搖搖晃晃地行進中。車內人很多，空氣中瀰漫著淡淡的晨光。' },
+            { speaker: '旁白', text: '小明站在公車後門附近，左邊是安靜看書的小美，右邊是正努力平衡身體、提著大袋子的小花。', characters: ['ming'] },
+            { 
+                type: 'choice',
+                choices: [
+                    { text: '主動幫小花提袋子。', next: 'path_A1' },
+                    { text: '鼓起勇氣搭訕看書的小美。', next: 'path_A2' },
+                    { text: '低頭玩手機，安全第一。', next: 'path_A3' }
+                ]
+            }
+        ],
+        path_A1: [
+            { speaker: '小明', text: '「那個...東西看起來很重，要不要我幫妳提著？我也在那一站下車。」', characters: ['ming', 'haw'], active: 'ming' },
+            { speaker: '旁白', text: '小花愣了一下，隨即綻放燦爛的笑容。', active: 'haw' },
+            { speaker: '小花', text: '「真的嗎？太感謝了！我是美術社的，今天要搬這些石膏模型真的快累死了。」', active: 'haw' },
+            {
+                type: 'choice',
+                choices: [
+                    { text: '「我也很喜歡畫畫，這模型看起來很精緻。」', next: 'path_A1_success' },
+                    { text: '「這真的很重，妳力氣也太小了吧？」', next: 'path_A1_fail' }
+                ]
+            }
+        ],
+        path_A1_success: [
+            { speaker: '旁白', text: '小花雙眼發亮，兩人聊得投機。' },
+            { speaker: '小花', text: '「你是個好人，我們可以加個好友交換作品嗎？」', active: 'haw' },
+            { speaker: '旁白', text: '<span class="ending-tag">成就：美術社的專屬模特</span>' },
+            { 
+                type: 'logic_check', 
+                next: 'hidden_branch' 
+            }
+        ],
+        path_A1_fail: [
+            { speaker: '旁白', text: '小花笑容凝固。', active: 'haw' },
+            { speaker: '小花', text: '「喔...謝謝你的體力，但我想我可以自己拿了。」她默默退到一旁。', active: 'haw' },
+            { speaker: '旁白', text: '<span class="ending-tag">結局：普通的路人</span>', next: 'game_end' }
+        ],
+        path_A2: [
+            { speaker: '旁白', text: '小明輕輕拍了拍小美的肩膀。小美摘下一邊耳機，疑惑地看著你。', characters: ['ming', 'may'], active: 'ming' },
+            { speaker: '小明', text: '「妳看的這本書...作者是 XXX 嗎？我也很喜歡他的風格。」', active: 'ming' },
+            {
+                type: 'choice',
+                choices: [
+                    { text: '深入討論書中關於「孤獨」的主題。', next: 'path_A2_success' },
+                    { text: '問她：「這本書很厚，妳真的看得懂嗎？」', next: 'path_A2_fail' }
+                ]
+            }
+        ],
+        path_A2_success: [
+            { speaker: '旁白', text: '小美露出一絲難得的驚訝，點了點頭。', active: 'may' },
+            { speaker: '小美', text: '「很少遇到跟我品味一樣的人，明天同一班車見。」', active: 'may' },
+            { speaker: '旁白', text: '<span class="ending-tag">成就：文藝少女的共鳴</span>', next: 'game_end' }
+        ],
+        path_A2_fail: [
+            { speaker: '旁白', text: '小美冷冷地看了你一眼，戴回耳機，把身體轉向窗外。', active: 'may' },
+            { speaker: '旁白', text: '<span class="ending-tag">結局：空氣般的尷尬</span>', next: 'game_end' }
+        ],
+        path_A3: [
+            { speaker: '旁白', text: '小明決定保持低調。公車到站了，小花提著重物辛苦地下車，小美則優雅地消失在人群中。', characters: ['ming'] },
+            { speaker: '小明', text: '（嘆了口氣，走進校門。）' },
+            {
+                type: 'choice',
+                choices: [
+                    { text: '(後悔) 剛才如果開口就好了...', next: 'path_A3_end' }
+                ]
+            }
+        ],
+        path_A3_end: [
+            { speaker: '旁白', text: '又是無事發生的、平凡的一天。' },
+            { speaker: '旁白', text: '<span class="ending-tag">結局：單身狗的日常</span>', next: 'game_end' }
+        ],
+        hidden_branch: [
+            { speaker: '旁白', text: '下車時，你提著重物一個踉蹌，不小心撞到了旁邊正準備起身的小美。', characters: ['haw', 'may'] },
+            { speaker: '小花', text: '「小心！」', active: 'haw' },
+            { speaker: '小美', text: '「...是你？」', active: 'may' },
+            { speaker: '旁白', text: '兩位少女對視一眼。氣氛變得有些奇妙。' },
+            {
+                type: 'choice',
+                choices: [
+                    { text: '「要不要...我們三個一起去喝杯咖啡？」', next: 'god_ending' },
+                    { text: '「對不起！我先走了！」', next: 'path_hidden_escape' }
+                ]
+            }
+        ],
+        path_hidden_escape: [
+            { speaker: '小明', text: '「對不起！我突然想起我有急事！」', characters: ['haw', 'may'], active: 'ming' },
+            { speaker: '旁白', text: '你因為太過緊張而落荒而逃，身後傳來小花困惑的呼喊。' },
+            { speaker: '旁白', text: '明明是絕佳的機會，你卻選擇了逃避。這大概就是實力單身吧。' },
+            { speaker: '旁白', text: '<span class="ending-tag">結局：落荒而逃的勇者</span>', next: 'game_end' }
+        ],
+        god_ending: [
+            { speaker: '旁白', text: '雖然機率極低，但你竟然同時拿到了兩人的聯繫方式！這就是傳說中的公車傳說嗎？' },
+            { speaker: '旁白', text: '<span class="ending-tag">神級結局：左右逢源</span>', next: 'game_end' }
+        ]
+    };
+
+    let currentScene = 'start';
+    let stepIndex = 0;
+    let isTyping = false;
+
+    const gameContainer = document.getElementById('game-container');
+    const charLayer = document.getElementById('character-layer');
+    const startScreen = document.getElementById('start-screen');
+    const dialogueBox = document.getElementById('dialogue-box');
+    const speakerLabel = document.getElementById('speaker-name');
+    const dialogueText = document.getElementById('dialogue-text');
+    const choiceContainer = document.getElementById('choice-container');
+    const charMing = document.getElementById('char-ming');
+    const charHaw = document.getElementById('char-haw');
+    const charMay = document.getElementById('char-may');
+
+    function startGame() {
+        startScreen.style.display = 'none';
+        dialogueBox.style.display = 'block';
+        renderStep();
+    }
+
+    function renderStep() {
+        const sceneSteps = script[currentScene];
+        const step = sceneSteps[stepIndex];
+
+        if (!step) return;
+
+        if (step.type === 'logic_check') {
+            currentScene = step.next;
+            stepIndex = 0;
+            renderStep();
+            return;
+        }
+
+        if (step.bg) {
+            gameContainer.style.backgroundImage = `url('${step.bg}')`;
+        }
+
+        if (currentScene === 'hidden_branch' || currentScene === 'god_ending' || currentScene === 'path_hidden_escape') {
+            charLayer.classList.add('hidden-layout');
+        } else {
+            charLayer.classList.remove('hidden-layout');
+        }
+
+        choiceContainer.style.display = 'none';
+        choiceContainer.innerHTML = '';
+
+        if (step.type === 'choice') {
+            displayChoices(step.choices);
+        } else {
+            updateCharacters(step.characters, step.active);
+            speakerLabel.innerText = step.speaker || '旁白';
+            typeText(step.text);
+        }
+    }
+
+    function updateCharacters(visibleChars, activeChar) {
+        const allChars = {
+            'ming': charMing,
+            'haw': charHaw,
+            'may': charMay
+        };
+
+        if (visibleChars) {
+            Object.keys(allChars).forEach(key => {
+                if (visibleChars.includes(key)) {
+                    allChars[key].classList.add('active');
+                } else {
+                    allChars[key].classList.remove('active');
+                }
+            });
+        }
+
+        Object.keys(allChars).forEach(key => {
+            if (activeChar && key !== activeChar) {
+                allChars[key].classList.add('dimmed');
+            } else {
+                allChars[key].classList.remove('dimmed');
+            }
+        });
+    }
+
+    function typeText(text) {
+        isTyping = true;
+        dialogueText.innerHTML = "";
+        let i = 0;
+        
+        if (text.includes('<')) {
+            dialogueText.innerHTML = text;
+            isTyping = false;
+            return;
+        }
+
+        const interval = setInterval(() => {
+            dialogueText.innerHTML += text.charAt(i);
+            i++;
+            if (i >= text.length) {
+                clearInterval(interval);
+                isTyping = false;
+            }
+        }, 30);
+    }
+
+    function displayChoices(choices) {
+        choiceContainer.style.display = 'flex';
+        choices.forEach(choice => {
+            const btn = document.createElement('div');
+            btn.className = 'choice-btn';
+            btn.innerText = choice.text;
+            btn.onclick = () => {
+                currentScene = choice.next;
+                stepIndex = 0;
+                renderStep();
+            };
+            choiceContainer.appendChild(btn);
+        });
+    }
+
+    function nextStep() {
+        if (isTyping) return;
+        if (choiceContainer.style.display === 'flex') return;
+
+        const sceneSteps = script[currentScene];
+        
+        if (sceneSteps[stepIndex].next) {
+            if (sceneSteps[stepIndex].next === 'game_end') {
+                location.reload();
+                return;
+            }
+            currentScene = sceneSteps[stepIndex].next;
+            stepIndex = 0;
+        } else {
+            stepIndex++;
+            if (stepIndex >= sceneSteps.length) {
+                location.reload();
+                return;
+            }
+        }
+        renderStep();
+    }
+
+    document.getElementById('start-button').addEventListener('click', startGame);
+    dialogueBox.addEventListener('click', nextStep);
+
+    window.onload = () => {
+        Object.values(config.images).forEach(src => {
+            const img = new Image();
+            img.src = src;
+        });
+    };
+
+</script>
+
+</body>
+</html>
